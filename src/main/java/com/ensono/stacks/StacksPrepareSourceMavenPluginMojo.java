@@ -21,13 +21,7 @@ import java.util.List;
 
 @Mojo(name = "stacks-prepare-project", defaultPhase = LifecyclePhase.COMPILE)
 public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMavenPluginMojo {
-
-    private static final String TEST_PATH = "/src/test/java";
-    private static final String JAVA_PATH = "/src/main/java";
-
-    private static final String JAVA_FILE = ".java";
-
-
+    
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
 
