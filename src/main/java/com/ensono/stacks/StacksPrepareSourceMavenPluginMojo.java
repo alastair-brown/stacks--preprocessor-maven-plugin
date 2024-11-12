@@ -28,7 +28,6 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
     private static final String JAVA_FILE = ".java";
 
 
-
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
 
@@ -63,20 +62,20 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             getLog().error("Error walking tree", ioe);
         }
 
-            for (Path path : allFiles) {
-                try {
+        for (Path path : allFiles) {
+            try {
 
-                    getLog().info("Source file to move = " + path);
-                    if (path.toFile().exists()) {
-                        FileUtils.moveFile(path, buildJavaPath(path));
+                getLog().info("Source file to move = " + path);
+                if (path.toFile().exists()) {
+                    FileUtils.moveFile(path, buildJavaPath(path));
 
-                    }
-
-                } catch (IOException ioe) {
-                    getLog().error("Error moving file " + path, ioe);
                 }
+
+            } catch (IOException ioe) {
+                getLog().error("Error moving file " + path, ioe);
             }
-            FileUtils.deleteDirectoryStructure(Path.of(projectLocation + PRE_PROCESSOR_OUTPUT_DIR));
+        }
+        FileUtils.deleteDirectoryStructure(Path.of(projectLocation + PRE_PROCESSOR_OUTPUT_DIR));
 
     }
 
