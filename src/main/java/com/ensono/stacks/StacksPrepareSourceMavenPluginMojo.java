@@ -47,7 +47,6 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             @Override
             public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
                     throws IOException {
-                System.out.println("File = " + path);
 
                 if (path.toFile().isFile() && path.toString().endsWith(JAVA_FILE)) {
                     allFiles.add(path);
