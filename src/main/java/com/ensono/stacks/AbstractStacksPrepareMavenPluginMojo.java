@@ -10,6 +10,12 @@ import java.nio.file.Path;
 public abstract class AbstractStacksPrepareMavenPluginMojo extends AbstractMojo {
     static final String TEST_PATH = "/src/test/java";
     static final String JAVA_PATH = "/src/main/java";
+
+    static final String APP_MODULE = "/app";
+    static final String RESOURCES_PATH = "/src/main/resources";
+
+    static final String APPLICATION_PROPERTIES = "application.yml";
+
     static final String PRE_PROCESSOR_OUTPUT_DIR = "/com";
     static final String JAVA_FILE = ".java";
     static final String TEST_FILE = "Test.java";
@@ -20,6 +26,9 @@ public abstract class AbstractStacksPrepareMavenPluginMojo extends AbstractMojo 
     @Parameter(property = "projectLocation")
     String projectLocation;
 
+    @Parameter(property = "buildPom", defaultValue = "true")
+    boolean buildPom;
+
     Path buildTestPath(Path source) {
         String packagePath = StringUtils.replaceOnce(source.toString(), projectLocation, "");
         return Path.of(projectLocation + TEST_PATH + packagePath);
@@ -27,6 +36,10 @@ public abstract class AbstractStacksPrepareMavenPluginMojo extends AbstractMojo 
 
     Path buildJavaPath(Path path) {
         String packagePath = StringUtils.replaceOnce(path.toString(), projectLocation, "");
-        return Path.of(projectLocation + JAVA_PATH + packagePath);
+        if (path.startsWith(JAVA_PATH)) {
+            return path;
+        } else {
+            return Path.of(projectLocation + JAVA_PATH + packagePath);
+        }
     }
 }

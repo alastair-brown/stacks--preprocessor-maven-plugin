@@ -32,4 +32,37 @@ public class FileUtils {
 
         Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
     }
+
+    public static void copyFile(Path source, Path target) throws IOException {
+        Path targetDir = target.getParent();
+
+        if (!Files.exists(targetDir)) {
+            Files.createDirectories(targetDir);
+        }
+
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+    }
+
+    public static boolean fileExists(Path fileToCheck) throws IOException {
+        return Files.exists(fileToCheck);
+    }
+
+    public static boolean endsWithSeperator(Path pathToCheck) throws IOException {
+        return pathToCheck.endsWith(pathToCheck.getFileSystem().getSeparator());
+    }
+
+    public static Path makePath(Path path, String pathPart) throws IOException {
+        String sep = path.getFileSystem().getSeparator();
+        if (endsWithSeperator(path)) {
+            return Path.of(path + pathPart);
+        }
+        return Path.of(path +sep+ pathPart);
+
+    }
+
+    public static boolean containsSubPath(Path path, String subpath) {
+        return path.toString().contains(subpath);
+    }
+
+
 }

@@ -2,6 +2,7 @@ package com.ensono.stacks.model;
 
 import com.ensono.stacks.model.build.ProjectBuild;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
@@ -13,6 +14,7 @@ import java.util.List;
 
 import static com.ensono.stacks.model.ProjectConstants.OUTPUT_GROUP_SUFFIX;
 
+@JsonPropertyOrder({ "modelVersion", "parent", "groupId", "artifactId", "version", "properties", "dependencies", "build" })
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JacksonXmlRootElement(localName = "project")
 public class Project {
@@ -43,11 +45,13 @@ public class Project {
 
     public Project(MavenProject project) {
         this.modelVersion = project.getModelVersion();
+
         this.parent = new ProjectDependency(
                 project.getParent().getGroupId(),
                 project.getParent().getArtifactId(),
                 project.getParent().getVersion()
         );
+
 
         this.groupId = project.getGroupId();
         this.artifactId = project.getArtifactId() + OUTPUT_GROUP_SUFFIX;
