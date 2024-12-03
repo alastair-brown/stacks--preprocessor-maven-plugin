@@ -56,7 +56,7 @@ public class FileUtils {
         if (endsWithSeperator(path)) {
             return Path.of(path + pathPart);
         }
-        return Path.of(path +sep+ pathPart);
+        return Path.of(path + sep + pathPart);
 
     }
 

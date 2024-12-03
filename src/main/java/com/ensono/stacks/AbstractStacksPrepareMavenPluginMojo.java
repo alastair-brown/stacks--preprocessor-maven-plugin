@@ -1,5 +1,6 @@
 package com.ensono.stacks;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -23,11 +24,16 @@ public abstract class AbstractStacksPrepareMavenPluginMojo extends AbstractMojo 
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     MavenProject project;
 
-    @Parameter(property = "projectLocation")
+    @Parameter(property = "projectLocation", required = true)
     String projectLocation;
+
+    @Parameter(property = "projectConfigFile", required = true)
+    String projectConfigFile = "";
 
     @Parameter(property = "buildPom", defaultValue = "true")
     boolean buildPom;
+
+    ObjectMapper objectMapper = new ObjectMapper();
 
     Path buildTestPath(Path source) {
         String packagePath = StringUtils.replaceOnce(source.toString(), projectLocation, "");

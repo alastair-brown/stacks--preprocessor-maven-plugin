@@ -14,7 +14,7 @@ import java.util.List;
 
 import static com.ensono.stacks.model.ProjectConstants.OUTPUT_GROUP_SUFFIX;
 
-@JsonPropertyOrder({ "modelVersion", "parent", "groupId", "artifactId", "version", "properties", "dependencies", "build" })
+@JsonPropertyOrder({"modelVersion", "parent", "groupId", "artifactId", "version", "properties", "dependencies", "build"})
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JacksonXmlRootElement(localName = "project")
 public class Project {
