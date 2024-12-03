@@ -1,8 +1,10 @@
 package com.ensono.stacks.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Getter;
 import org.apache.maven.model.Dependency;
 
+@Getter
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class ProjectDependency {
     private final String groupId;
@@ -36,23 +38,4 @@ public class ProjectDependency {
         this.version = version;
     }
 
-    public String getGroupId() {
-        return groupId;
-    }
-
-    public String getArtifactId() {
-        return artifactId;
-    }
-
-    public String getVersion() {
-        return version;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public String getScope() {
-        return scope;
-    }
 }

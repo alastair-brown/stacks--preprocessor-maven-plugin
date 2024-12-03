@@ -6,6 +6,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.project.MavenProject;
 
@@ -14,7 +16,8 @@ import java.util.List;
 
 import static com.ensono.stacks.model.ProjectConstants.OUTPUT_GROUP_SUFFIX;
 
-@JsonPropertyOrder({"modelVersion", "parent", "groupId", "artifactId", "version", "properties", "dependencies", "build"})
+@Getter
+@JsonPropertyOrder({ "modelVersion", "parent", "groupId", "artifactId", "version", "properties", "dependencies", "build" })
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JacksonXmlRootElement(localName = "project")
 public class Project {
@@ -35,6 +38,7 @@ public class Project {
 
     private final String version;
 
+    @Setter
     private ProjectBuild build;
 
     @JacksonXmlElementWrapper(localName = "dependencies")
@@ -63,51 +67,4 @@ public class Project {
         this.build = new ProjectBuild(project);
     }
 
-    public String getXmlns() {
-        return xmlns;
-    }
-
-    public String getXmlnsXsi() {
-        return xmlnsXsi;
-    }
-
-    public String getXsiSchemaLocation() {
-        return xsiSchemaLocation;
-    }
-
-    public String getModelVersion() {
-        return modelVersion;
-    }
-
-    public ProjectDependency getParent() {
-        return parent;
-    }
-
-    public String getGroupId() {
-        return groupId;
-    }
-
-    public String getArtifactId() {
-        return artifactId;
-    }
-
-    public String getVersion() {
-        return version;
-    }
-
-    public ProjectProperties getProperties() {
-        return properties;
-    }
-
-    public List<ProjectDependency> getDependencies() {
-        return dependencies;
-    }
-
-    public ProjectBuild getBuild() {
-        return build;
-    }
-
-    public void setBuild(ProjectBuild build) {
-        this.build = build;
-    }
 }

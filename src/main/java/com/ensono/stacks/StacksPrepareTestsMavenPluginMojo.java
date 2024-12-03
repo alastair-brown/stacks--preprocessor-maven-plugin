@@ -1,13 +1,16 @@
 package com.ensono.stacks;
 
 import com.ensono.stacks.utils.FileUtils;
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +19,7 @@ import java.util.List;
 public class StacksPrepareTestsMavenPluginMojo extends AbstractStacksPrepareMavenPluginMojo {
 
     @Override
-    public void execute() throws MojoExecutionException, MojoFailureException {
+    public void execute() {
 
         getLog().info("ProjectLocation - " + projectLocation);
 
@@ -26,11 +29,10 @@ public class StacksPrepareTestsMavenPluginMojo extends AbstractStacksPrepareMave
     private void moveFiles() {
 
         List<Path> allFiles = new ArrayList<>();
-        FileVisitor<Path> fv = new SimpleFileVisitor<Path>() {
+        FileVisitor<Path> fv = new SimpleFileVisitor<>() {
 
             @Override
-            public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
-                    throws IOException {
+            public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) {
 
                 if (path.toFile().isFile() && path.toString().endsWith(JAVA_FILE)) {
                     allFiles.add(path);
@@ -62,9 +64,5 @@ public class StacksPrepareTestsMavenPluginMojo extends AbstractStacksPrepareMave
             }
         }
         FileUtils.deleteDirectoryStructure(Path.of(projectLocation + PRE_PROCESSOR_OUTPUT_DIR));
-
-
     }
-
-
 }

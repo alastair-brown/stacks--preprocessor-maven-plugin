@@ -43,25 +43,25 @@ public class FileUtils {
         Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
     }
 
-    public static boolean fileExists(Path fileToCheck) throws IOException {
+    public static boolean fileExists(Path fileToCheck) {
         return Files.exists(fileToCheck);
     }
 
-    public static boolean endsWithSeperator(Path pathToCheck) throws IOException {
+    public static boolean endsWithSeparator(Path pathToCheck) {
         return pathToCheck.endsWith(pathToCheck.getFileSystem().getSeparator());
     }
 
     public static Path makePath(Path path, String pathPart) throws IOException {
         String sep = path.getFileSystem().getSeparator();
-        if (endsWithSeperator(path)) {
+        if (endsWithSeparator(path)) {
             return Path.of(path + pathPart);
         }
         return Path.of(path + sep + pathPart);
 
     }
 
-    public static boolean containsSubPath(Path path, String subpath) {
-        return path.toString().contains(subpath);
+    public static boolean containsSubPath(Path path, String subPath) {
+        return path.toString().contains(subPath);
     }
 
 

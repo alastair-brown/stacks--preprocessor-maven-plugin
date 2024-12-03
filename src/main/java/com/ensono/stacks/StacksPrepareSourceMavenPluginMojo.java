@@ -12,29 +12,49 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
+import com.github.mustachejava.DefaultMustacheFactory;
+import com.github.mustachejava.Mustache;
+import com.github.mustachejava.MustacheFactory;
+import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Profile;
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.*;
+import java.io.InputStreamReader;
+import java.io.StringWriter;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+
+import static com.ensono.stacks.utils.FileUtils.makePath;
 
 
 @Mojo(name = "stacks-prepare-project", defaultPhase = LifecyclePhase.COMPILE)
 public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMavenPluginMojo {
 
-    List<String> activeProfileIds = new ArrayList<>();
+    private List<String> activeProfileIds = new ArrayList<>();
+    private static final List<String> REMOVABLE_DEPENDENCIES = new ArrayList<>(Arrays.asList(
+            "systems.manifold",
+            "com.github.spullara.mustache.java",
+            "com.spotify.fmt"
+    ));
+
 
     ProjectConfig projectConfig;
 
     @Override
-    public void execute() throws MojoExecutionException, MojoFailureException {
+    public void execute() {
 
         getLog().info("ProjectLocation - " + projectLocation);
 
@@ -49,7 +69,12 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         generateResources();
 
         if (buildPom) {
-            writePom();
+            try {
+                writePom(project.getDependencies());
+            } catch (IOException e) {
+                getLog().error("Unable to write POM file", e);
+                throw new RuntimeException(e);
+            }
         } else {
             getLog().info("Configured to not generate Pom file = ");
         }
@@ -84,11 +109,10 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
     private void moveFiles() {
 
         List<Path> allFiles = new ArrayList<>();
-        FileVisitor<Path> fv = new SimpleFileVisitor<Path>() {
+        FileVisitor<Path> fv = new SimpleFileVisitor<>() {
 
             @Override
-            public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
-                    throws IOException {
+            public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) {
 
                 if (path.toFile().isFile() && path.toString().endsWith(JAVA_FILE)) {
                     getLog().info("Adding file to move = " + path);
@@ -96,7 +120,6 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
                 }
                 return FileVisitResult.CONTINUE;
             }
-
         };
 
         try {
@@ -124,6 +147,11 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
 
     private void generateResources() {
         try {
+            Path sourceResourcesDir = makePath(Paths.get("").toAbsolutePath(), APP_MODULE + RESOURCES_PATH);
+            Path destinationResourcesDir = makePath(Path.of(projectLocation), RESOURCES_PATH);
+            getLog().info( "Resources directory - " + sourceResourcesDir);
+            Path sourceApplicationProperties = makePath(sourceResourcesDir, APPLICATION_PROPERTIES);
+            Path destinationApplicationProperties = makePath(destinationResourcesDir, APPLICATION_PROPERTIES);
             List<Path> resources = new ArrayList<>();
             Path sourceResourcesDir = FileUtils.makePath(Paths.get("").toAbsolutePath(), APP_MODULE + RESOURCES_PATH);
             Path destinationResourcesDir = FileUtils.makePath(Path.of(projectLocation), RESOURCES_PATH);
@@ -138,6 +166,10 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
                 FilterItem item = FilterConfig.getProfileFilter().get(id);
                 if (item.hasProperties()) {
                     try {
+                        Path sourceAdditionalApplicationProperties = makePath(sourceResourcesDir, item.getProperties());
+                        Path destinationAdditionalApplicationProperties = makePath(destinationResourcesDir, item.getProperties());
+                        getLog().info( "Copying Props file - " + sourceAdditionalApplicationProperties);
+                        FileUtils.copyFile(sourceApplicationProperties, destinationAdditionalApplicationProperties);
                         Path sourceAdditionalApplicationProperties = FileUtils.makePath(sourceResourcesDir, item.getProperties());
                         resources.add(sourceAdditionalApplicationProperties);
                     } catch (IOException ioe) {
@@ -156,18 +188,34 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         }
     }
 
-    private void writePom() {
+    private void writePom(List<Dependency> dependencies) throws IOException {
         File pomFile = new File(projectLocation + "/pom.xml");
         getLog().info("Generating Pom file = " + pomFile);
-        XmlMapper xmlMapper = new XmlMapper();
-        xmlMapper.enable(SerializationFeature.INDENT_OUTPUT);
-        xmlMapper.configure(ToXmlGenerator.Feature.WRITE_XML_DECLARATION, true);
-        try {
-            Project pomModel = new Project(project);
-            pomModel.setBuild(new ProjectBuild(List.of(PluginFactory.buildSpringBootPlugin())));
-            xmlMapper.writeValue(pomFile, pomModel);
+
+        // Filter dependencies based on removable dependencies
+        List<Dependency> filteredDependencies = dependencies.stream()
+                .filter(dep -> !REMOVABLE_DEPENDENCIES.contains(dep.getGroupId()))
+                .toList();
+
+        MustacheFactory mf = new DefaultMustacheFactory();
+        Path templatePath = makePath(Paths.get("").toAbsolutePath(),"app/src/main/resources/templates/template.mustache");
+        Mustache mustache;
+
+        try(InputStreamReader reader = new InputStreamReader(Files.newInputStream(templatePath))) {
+            mustache = mf.compile(reader, "template");
+        }
+
+        StringWriter writer = new StringWriter();
+
+        // add filtered dependencies to pom
+        mustache.execute(writer, Collections.singletonMap("dependencies", filteredDependencies)).flush();
+
+        try(FileWriter fileWriter = new FileWriter(pomFile)) {
+            fileWriter.write(writer.toString());
+            getLog().info("Pom file generated = " + pomFile);
         } catch (IOException e) {
             getLog().error("Unable to write POM file", e);
         }
+
     }
 }

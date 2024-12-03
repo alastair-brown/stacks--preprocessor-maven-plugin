@@ -13,5 +13,5 @@ public class ProjectPluginConfiguration {
 
     @JacksonXmlElementWrapper(localName = "excludes")
     @JacksonXmlProperty(localName = "exclude")
-    private List<ProjectDependency> excludes = new ArrayList<>();
+    private List<ProjectDependency> excludes;
 }

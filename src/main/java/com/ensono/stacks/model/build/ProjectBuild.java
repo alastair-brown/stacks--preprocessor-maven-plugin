@@ -2,12 +2,14 @@ package com.ensono.stacks.model.build;
 
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
+import lombok.Getter;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.project.MavenProject;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Getter
 public class ProjectBuild {
     @JacksonXmlElementWrapper(localName = "plugins")
     @JacksonXmlProperty(localName = "plugin")
@@ -21,9 +23,5 @@ public class ProjectBuild {
 
     public ProjectBuild(List<ProjectPlugin> plugins) {
         this.plugins = plugins;
-    }
-
-    public List<ProjectPlugin> getPlugins() {
-        return plugins;
     }
 }
