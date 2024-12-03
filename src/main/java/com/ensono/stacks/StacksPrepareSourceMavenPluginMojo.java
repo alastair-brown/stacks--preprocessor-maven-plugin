@@ -9,18 +9,32 @@ import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Profile;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.project.MavenProject;
 
-import java.io.*;
-import java.nio.file.*;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.StringWriter;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.ensono.stacks.projectconfig.ProjectConfigUtils.buildPropertiesListFromConfig;
 import static com.ensono.stacks.projectconfig.ProjectConfigUtils.filterPackageList;
-import static com.ensono.stacks.utils.FileUtils.*;
+import static com.ensono.stacks.utils.FileUtils.deleteDirectoryStructure;
+import static com.ensono.stacks.utils.FileUtils.makePath;
+import static com.ensono.stacks.utils.FileUtils.moveFile;
 
 
 @Mojo(name = "stacks-prepare-project", defaultPhase = LifecyclePhase.COMPILE)
@@ -32,7 +46,6 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             "com.github.spullara.mustache.java",
             "com.spotify.fmt"
     ));
-
 
     ProjectConfig projectConfig;
 
@@ -53,7 +66,7 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
 
         if (buildPom) {
             try {
-                writePom(project.getDependencies());
+                writePom(getDependencies(project));
             } catch (IOException e) {
                 getLog().error("Unable to write POM file", e);
                 throw new RuntimeException(e);
@@ -64,11 +77,9 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
     }
 
     private void buildActiveProfiles() {
-        activeProfileIds = (List<String>) project.getActiveProfiles()
+        activeProfileIds = getActiveProfiles(project)
                 .stream()
-                .map(
-                        p -> ((Profile) p).getId()
-                )
+                .map(Profile::getId)
                 .toList();
 
         getLog().info("Profiles -" + project.getActiveProfiles());
@@ -86,7 +97,6 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         } catch (IOException e) {
             getLog().error("Error reading projectConfigFile property");
         }
-
     }
 
     private void moveFiles() {
@@ -130,14 +140,15 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
 
     private void generateResources() {
         try {
-            List<Path> resources = new ArrayList<>();
             Path sourceResourcesDir = makePath(Paths.get("").toAbsolutePath(), APP_MODULE + RESOURCES_PATH);
             Path destinationResourcesDir = makePath(Path.of(projectLocation), RESOURCES_PATH);
 
             getLog().info("Using Resources directory - " + sourceResourcesDir);
             Path destinationApplicationProperties = makePath(destinationResourcesDir, projectConfig.getOutputPropertiesFile());
 
-            resources.addAll(buildPropertiesListFromConfig(activeProfileIds, sourceResourcesDir, projectConfig));
+            List<Path> resources = new ArrayList<>(
+                    buildPropertiesListFromConfig(activeProfileIds, sourceResourcesDir, projectConfig)
+            );
 
             resources.forEach(r ->
                     getLog().info("Combining Props file - " + r)
@@ -153,10 +164,8 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         File pomFile = new File(projectLocation + "/pom.xml");
         getLog().info("Generating Pom file = " + pomFile);
 
-        // Filter dependencies based on removable dependencies
-        List<Dependency> filteredDependencies = dependencies.stream()
-                .filter(dep -> !REMOVABLE_DEPENDENCIES.contains(dep.getGroupId()))
-                .toList();
+        // Prepare data model for Mustache
+        Map<String, Object> dataModel = createMustacheDataModel(dependencies);
 
         MustacheFactory mf = new DefaultMustacheFactory();
         Path templatePath = makePath(Paths.get("").toAbsolutePath(),"app/src/main/resources/templates/template.mustache");
@@ -169,7 +178,7 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         StringWriter writer = new StringWriter();
 
         // add filtered dependencies to pom
-        mustache.execute(writer, Collections.singletonMap("dependencies", filteredDependencies)).flush();
+        mustache.execute(writer, dataModel).flush();
 
         try(FileWriter fileWriter = new FileWriter(pomFile)) {
             fileWriter.write(writer.toString());
@@ -178,5 +187,44 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             getLog().error("Unable to write POM file", e);
         }
 
+    }
+
+    private Map<String, Object> createMustacheDataModel(List<Dependency> dependencies) {
+
+        // Filter dependencies we know we don't need
+        List<Dependency> filteredDependencies = dependencies.stream()
+                .filter(dep -> !REMOVABLE_DEPENDENCIES.contains(dep.getGroupId()))
+                .collect(Collectors.toList());
+
+        // Extract GroupId and version into a list of strings
+        List<String> versionProperties = filteredDependencies.stream()
+                .map(dep -> {
+                    String propertyName = dep.getGroupId() + ".version";
+                    return String.format("<%s>%s</%s>", propertyName, dep.getVersion(), propertyName);
+                })
+                .distinct()
+                .collect(Collectors.toList());
+
+        // Update the dependencies to use the new property
+        filteredDependencies.forEach(dep -> {
+            String propertyName = dep.getGroupId() + ".version";
+            dep.setVersion("${" + propertyName + "}");
+        });
+
+        Map<String, Object> dataModel = new HashMap<>();
+        dataModel.put("dependencies", filteredDependencies);
+        dataModel.put("versionProperties", versionProperties);
+
+        return dataModel;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Dependency> getDependencies(MavenProject project) {
+        return (List<Dependency>) project.getDependencies();
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Profile> getActiveProfiles(MavenProject project) {
+        return (List<Profile>) project.getActiveProfiles();
     }
 }
