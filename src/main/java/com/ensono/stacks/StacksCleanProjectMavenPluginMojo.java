@@ -22,7 +22,7 @@ public class StacksCleanProjectMavenPluginMojo extends AbstractMojo {
 
 
     @Override
-    public void execute() throws MojoExecutionException, MojoFailureException {
+    public void execute() {
         getLog().info("Do clean on " + projectLocation);
         FileUtils.deleteDirectoryStructure(Path.of(projectLocation));
     }

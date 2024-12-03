@@ -1,7 +1,9 @@
 package com.ensono.stacks.model.build;
 
+import lombok.Getter;
 import org.apache.maven.model.Plugin;
 
+@Getter
 public class ProjectPlugin {
 
     private final String groupId;
@@ -20,17 +22,5 @@ public class ProjectPlugin {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.configuration = configuration;
-    }
-
-    public String getGroupId() {
-        return groupId;
-    }
-
-    public String getArtifactId() {
-        return artifactId;
-    }
-
-    public Object getConfiguration() {
-        return configuration;
     }
 }

@@ -20,6 +20,6 @@ public class FilterItem {
     }
 
     public boolean hasProperties() {
-        return (this.properties !=null)?true:false;
+        return this.properties != null;
     }
 }

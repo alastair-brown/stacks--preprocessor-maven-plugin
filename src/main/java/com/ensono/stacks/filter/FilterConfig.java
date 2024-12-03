@@ -1,18 +1,19 @@
 package com.ensono.stacks.filter;
 
 import com.ensono.stacks.utils.FileUtils;
+import lombok.Getter;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class FilterConfig {
 
-    private static List<String> corePackages = new ArrayList<>();
-    private static Map<String, FilterItem> profileFilter = new HashMap<>();
+    private static final List<String> corePackages = new ArrayList<>();
+    @Getter
+    private static final Map<String, FilterItem> profileFilter = new HashMap<>();
 
     static {
         profileFilter.put("aws", new FilterItem("com/ensono/stacks/stacks_preprocessor/aws", "application-aws.yml"));
@@ -30,10 +31,6 @@ public class FilterConfig {
         corePackages.add("com/ensono/stacks/stacks_preprocessor/StacksPreprocessorApplication.java");
     }
 
-    public static Map<String, FilterItem> getProfileFilter() {
-        return profileFilter;
-    }
-
     public static List<Path> filterPackageList(List<Path> allFiles, List<String> profiles) {
         List<String> packagesToInclude = buildPackageList(profiles);
 
@@ -45,8 +42,7 @@ public class FilterConfig {
     }
 
     public static List<String> buildPackageList(List<String> profiles) {
-        List<String> fullPackageList = new ArrayList<>();
-        fullPackageList.addAll(corePackages);
+        List<String> fullPackageList = new ArrayList<>(corePackages);
         profileFilter.keySet().forEach( key -> {
             if (profiles.contains(key)) {
                 fullPackageList.add(profileFilter.get(key).getPackageName());
