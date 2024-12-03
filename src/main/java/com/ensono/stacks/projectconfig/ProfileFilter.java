@@ -15,4 +15,7 @@ public class ProfileFilter {
     @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
     private List<String> propertiesFile;
 
+    public boolean hasProperties() {
+        return this.propertiesFile != null && !this.propertiesFile.isEmpty();
+    }
 }

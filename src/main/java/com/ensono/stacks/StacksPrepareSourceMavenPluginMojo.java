@@ -1,17 +1,7 @@
 package com.ensono.stacks;
 
-import com.ensono.stacks.filter.FilterConfig;
-import com.ensono.stacks.filter.FilterItem;
-import com.ensono.stacks.model.Project;
-import com.ensono.stacks.model.build.PluginFactory;
-import com.ensono.stacks.model.build.ProjectBuild;
 import com.ensono.stacks.projectconfig.ProjectConfig;
 import com.ensono.stacks.utils.ApplicationPropertiesFileBuilder;
-import com.ensono.stacks.utils.FileUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.Mustache;
 import com.github.mustachejava.MustacheFactory;
@@ -20,24 +10,17 @@ import org.apache.maven.model.Profile;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.StringWriter;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
+import java.io.*;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static com.ensono.stacks.utils.FileUtils.makePath;
+import static com.ensono.stacks.projectconfig.ProjectConfigUtils.buildPropertiesListFromConfig;
+import static com.ensono.stacks.projectconfig.ProjectConfigUtils.filterPackageList;
+import static com.ensono.stacks.utils.FileUtils.*;
 
 
 @Mojo(name = "stacks-prepare-project", defaultPhase = LifecyclePhase.COMPILE)
@@ -56,9 +39,9 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
     @Override
     public void execute() {
 
-        getLog().info("ProjectLocation - " + projectLocation);
+        getLog().info("Project output location - " + projectLocation);
 
-        getLog().info("Working directory -" + Paths.get("").toAbsolutePath());
+        getLog().info("Working directory - " + Paths.get("").toAbsolutePath());
 
         buildProjectConfig();
 
@@ -94,15 +77,15 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
     private void buildProjectConfig() {
         try {
             if (projectConfigFile == null) {
-                getLog().error("projectConfigFile must be set");
+                getLog().error("projectConfigFile property must be set");
             }
-            Path projectConfigFile = FileUtils.makePath(Path.of(projectLocation), this.projectConfigFile);
+            Path projectConfigFile = makePath(Paths.get("").toAbsolutePath(), this.projectConfigFile);
+            getLog().info("Reading project config from " +projectConfigFile);
+
             projectConfig = objectMapper.readValue(projectConfigFile.toFile(), ProjectConfig.class);
         } catch (IOException e) {
-            getLog().error("Error reading projectConfigFile");
+            getLog().error("Error reading projectConfigFile property");
         }
-
-        getLog().info(projectConfig.toString());
 
     }
 
@@ -115,7 +98,7 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) {
 
                 if (path.toFile().isFile() && path.toString().endsWith(JAVA_FILE)) {
-                    getLog().info("Adding file to move = " + path);
+                    getLog().info("Adding file to move - " + path);
                     allFiles.add(path);
                 }
                 return FileVisitResult.CONTINUE;
@@ -129,54 +112,32 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             getLog().error("Error walking tree", ioe);
         }
 
-        List<Path> filteredFiles = FilterConfig.filterPackageList(allFiles, activeProfileIds);
+        List<Path> filteredFiles = filterPackageList(allFiles, activeProfileIds, projectConfig);
         for (Path path : filteredFiles) {
             try {
 
-                getLog().info("Source file to move = " + path);
+                getLog().info("Source file to move - " + path);
                 if (path.toFile().exists()) {
-                    FileUtils.moveFile(path, buildJavaPath(path));
+                    moveFile(path, buildJavaPath(path));
                 }
 
             } catch (IOException ioe) {
-                getLog().error("Error moving file " + path, ioe);
+                getLog().error("Error moving file - " + path, ioe);
             }
         }
-        FileUtils.deleteDirectoryStructure(Path.of(projectLocation + PRE_PROCESSOR_OUTPUT_DIR));
+        deleteDirectoryStructure(Path.of(projectLocation + PRE_PROCESSOR_OUTPUT_DIR));
     }
 
     private void generateResources() {
         try {
+            List<Path> resources = new ArrayList<>();
             Path sourceResourcesDir = makePath(Paths.get("").toAbsolutePath(), APP_MODULE + RESOURCES_PATH);
             Path destinationResourcesDir = makePath(Path.of(projectLocation), RESOURCES_PATH);
-            getLog().info( "Resources directory - " + sourceResourcesDir);
-            Path sourceApplicationProperties = makePath(sourceResourcesDir, APPLICATION_PROPERTIES);
-            Path destinationApplicationProperties = makePath(destinationResourcesDir, APPLICATION_PROPERTIES);
-            List<Path> resources = new ArrayList<>();
-            Path sourceResourcesDir = FileUtils.makePath(Paths.get("").toAbsolutePath(), APP_MODULE + RESOURCES_PATH);
-            Path destinationResourcesDir = FileUtils.makePath(Path.of(projectLocation), RESOURCES_PATH);
 
             getLog().info("Using Resources directory - " + sourceResourcesDir);
-            Path sourceApplicationProperties = FileUtils.makePath(sourceResourcesDir, APPLICATION_PROPERTIES);
-            Path destinationApplicationProperties = FileUtils.makePath(destinationResourcesDir, APPLICATION_PROPERTIES);
+            Path destinationApplicationProperties = makePath(destinationResourcesDir, APPLICATION_PROPERTIES);
 
-            resources.add(sourceApplicationProperties);
-
-            activeProfileIds.forEach(id -> {
-                FilterItem item = FilterConfig.getProfileFilter().get(id);
-                if (item.hasProperties()) {
-                    try {
-                        Path sourceAdditionalApplicationProperties = makePath(sourceResourcesDir, item.getProperties());
-                        Path destinationAdditionalApplicationProperties = makePath(destinationResourcesDir, item.getProperties());
-                        getLog().info( "Copying Props file - " + sourceAdditionalApplicationProperties);
-                        FileUtils.copyFile(sourceApplicationProperties, destinationAdditionalApplicationProperties);
-                        Path sourceAdditionalApplicationProperties = FileUtils.makePath(sourceResourcesDir, item.getProperties());
-                        resources.add(sourceAdditionalApplicationProperties);
-                    } catch (IOException ioe) {
-                        getLog().error("Error creating reference to properties file", ioe);
-                    }
-                }
-            });
+            resources.addAll(buildPropertiesListFromConfig(activeProfileIds, sourceResourcesDir, projectConfig));
 
             resources.forEach(r ->
                     getLog().info("Combining Props file - " + r)
