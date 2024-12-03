@@ -15,8 +15,6 @@ public abstract class AbstractStacksPrepareMavenPluginMojo extends AbstractMojo 
     static final String APP_MODULE = "/app";
     static final String RESOURCES_PATH = "/src/main/resources";
 
-    static final String APPLICATION_PROPERTIES = "application.yml";
-
     static final String PRE_PROCESSOR_OUTPUT_DIR = "/com";
     static final String JAVA_FILE = ".java";
     static final String TEST_FILE = "Test.java";

@@ -135,7 +135,7 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             Path destinationResourcesDir = makePath(Path.of(projectLocation), RESOURCES_PATH);
 
             getLog().info("Using Resources directory - " + sourceResourcesDir);
-            Path destinationApplicationProperties = makePath(destinationResourcesDir, APPLICATION_PROPERTIES);
+            Path destinationApplicationProperties = makePath(destinationResourcesDir, projectConfig.getOutputPropertiesFile());
 
             resources.addAll(buildPropertiesListFromConfig(activeProfileIds, sourceResourcesDir, projectConfig));
 
