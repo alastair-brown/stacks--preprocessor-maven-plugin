@@ -33,7 +33,7 @@ public class ProjectConfigUtils {
     }
 
     public static List<Path> buildPropertiesListFromConfig(List<String> profiles, Path sourceResourcesDir, ProjectConfig projectConfig) throws IOException {
-        List<Path> fullPropertiesList = new ArrayList();
+        List<Path> fullPropertiesList = new ArrayList<>();
         fullPropertiesList.add(makePath(sourceResourcesDir, projectConfig.getCorePropertiesFile()));
         projectConfig.getProfileFilters().forEach(p -> {
             if (profiles.contains(p.getId())) {
