@@ -168,7 +168,7 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         Map<String, Object> dataModel = createMustacheDataModel(dependencies);
 
         MustacheFactory mf = new DefaultMustacheFactory();
-        Path templatePath = makePath(Paths.get("").toAbsolutePath(),"app/src/main/resources/templates/template.mustache");
+        Path templatePath = makePath(Paths.get("").toAbsolutePath(), pomTemplateFile);
         Mustache mustache;
 
         try(InputStreamReader reader = new InputStreamReader(Files.newInputStream(templatePath))) {

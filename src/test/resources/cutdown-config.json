@@ -1,0 +1,8 @@
+{
+  "coreIncludes": [
+    "com/amido/stacks/workloads"
+  ],
+  "profileFilters": [],
+  "corePropertiesFile": "application.yml",
+  "outputPropertiesFile": "application.yml"
+}

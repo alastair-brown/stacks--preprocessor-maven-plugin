@@ -27,4 +27,13 @@ public class ProjectConfigTest {
         Assert.assertEquals("application.yml", projectConfig.getOutputPropertiesFile());
         Assert.assertEquals("application.yml", projectConfig.getCorePropertiesFile());
     }
+
+    @Test
+    public void canParseCutdownProjectConfigJsonFile() throws IOException, URISyntaxException {
+
+        File configFile =Paths.get(getClass().getResource("/cutdown-config.json").toURI()).toFile();
+        ProjectConfig projectConfig = objectMapper.readValue(configFile, ProjectConfig.class);
+        Assert.assertEquals("application.yml", projectConfig.getOutputPropertiesFile());
+        Assert.assertEquals("application.yml", projectConfig.getCorePropertiesFile());
+    }
 }

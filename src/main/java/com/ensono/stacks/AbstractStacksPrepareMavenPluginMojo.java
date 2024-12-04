@@ -28,6 +28,9 @@ public abstract class AbstractStacksPrepareMavenPluginMojo extends AbstractMojo 
     @Parameter(property = "projectConfigFile", required = true)
     String projectConfigFile;
 
+    @Parameter(property = "pomTemplateFile", required = true)
+    String pomTemplateFile;
+
     @Parameter(property = "buildPom", defaultValue = "true")
     boolean buildPom;
 
