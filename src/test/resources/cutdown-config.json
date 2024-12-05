@@ -4,5 +4,10 @@
   ],
   "profileFilters": [],
   "corePropertiesFile": "application.yml",
+  "additionalProperties": [
+    "AI-Agent.xml",
+    "logback-spring.xml",
+    "auth.properties"
+  ],
   "outputPropertiesFile": "application.yml"
 }

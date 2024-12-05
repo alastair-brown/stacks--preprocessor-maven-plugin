@@ -32,9 +32,7 @@ import java.util.stream.Collectors;
 
 import static com.ensono.stacks.projectconfig.ProjectConfigUtils.buildPropertiesListFromConfig;
 import static com.ensono.stacks.projectconfig.ProjectConfigUtils.filterPackageList;
-import static com.ensono.stacks.utils.FileUtils.deleteDirectoryStructure;
-import static com.ensono.stacks.utils.FileUtils.makePath;
-import static com.ensono.stacks.utils.FileUtils.moveFile;
+import static com.ensono.stacks.utils.FileUtils.*;
 
 
 @Mojo(name = "stacks-prepare-project", defaultPhase = LifecyclePhase.COMPILE)
@@ -140,7 +138,7 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
 
     private void generateResources() {
         try {
-            Path sourceResourcesDir = makePath(Paths.get("").toAbsolutePath(), APP_MODULE + RESOURCES_PATH);
+            Path sourceResourcesDir = makePath(Paths.get("").toAbsolutePath(),  RESOURCES_PATH);
             Path destinationResourcesDir = makePath(Path.of(projectLocation), RESOURCES_PATH);
 
             getLog().info("Using Resources directory - " + sourceResourcesDir);
@@ -155,6 +153,20 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             );
 
             ApplicationPropertiesFileBuilder.combineResourceFiles(resources, destinationApplicationProperties);
+
+            if (projectConfig.hasAdditionalProperties()) {
+                projectConfig.additionalProperties.forEach(additionalProp -> {
+                    try {
+                        Path sourceAdditionalProperties = makePath(sourceResourcesDir, additionalProp);
+                        getLog().info("Copying additional properties file - " + sourceAdditionalProperties);
+                        Path destAdditionalProperties = makePath(destinationResourcesDir, additionalProp);
+                        copyFile(sourceAdditionalProperties, destAdditionalProperties);
+                    } catch (IOException e) {
+                        getLog().error("Error copying additional properties ", e);
+                    }
+                });
+            }
+
         } catch (IOException e) {
             getLog().error("Error creating application properties ", e);
         }
