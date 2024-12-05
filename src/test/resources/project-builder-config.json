@@ -54,6 +54,12 @@
       ]
     }
   ],
+  "excludedGroupIds": [
+    "systems.manifold",
+    "com.github.spullara.mustache.java",
+    "com.spotify.fmt"
+  ],
+
   "corePropertiesFile": "application.yml",
   "additionalProperties": [
     "AI-Agent.xml",

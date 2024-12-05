@@ -39,12 +39,6 @@ import static com.ensono.stacks.utils.FileUtils.*;
 public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMavenPluginMojo {
 
     private List<String> activeProfileIds = new ArrayList<>();
-    private static final List<String> REMOVABLE_DEPENDENCIES = new ArrayList<>(Arrays.asList(
-            "systems.manifold",
-            "com.github.spullara.mustache.java",
-            "com.spotify.fmt"
-    ));
-
     ProjectConfig projectConfig;
 
     @Override
@@ -177,7 +171,7 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         getLog().info("Generating Pom file = " + pomFile);
 
         // Prepare data model for Mustache
-        Map<String, Object> dataModel = createMustacheDataModel(dependencies);
+        Map<String, Object> dataModel = createMustacheDataModel(dependencies, projectConfig);
 
         MustacheFactory mf = new DefaultMustacheFactory();
         Path templatePath = makePath(Paths.get("").toAbsolutePath(), pomTemplateFile);
@@ -201,11 +195,12 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
 
     }
 
-    private Map<String, Object> createMustacheDataModel(List<Dependency> dependencies) {
+    private Map<String, Object> createMustacheDataModel(List<Dependency> dependencies, ProjectConfig projectConfig) {
 
         // Filter dependencies we know we don't need
         List<Dependency> filteredDependencies = dependencies.stream()
-                .filter(dep -> !REMOVABLE_DEPENDENCIES.contains(dep.getGroupId()))
+                .filter(dep -> !
+                        projectConfig.getExcludedGroupIds().contains(dep.getGroupId()))
                 .collect(Collectors.toList());
 
         // Extract GroupId and version into a list of strings
