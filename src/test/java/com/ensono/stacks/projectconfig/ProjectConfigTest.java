@@ -52,5 +52,6 @@ public class ProjectConfigTest {
                 ),
                 projectConfig.additionalProperties
         );
+        Assert.assertNotNull(projectConfig.getExcludedGroupIds());
     }
 }
