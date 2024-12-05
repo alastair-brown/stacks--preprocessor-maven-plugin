@@ -2,6 +2,7 @@ package com.ensono.stacks;
 
 import com.ensono.stacks.projectconfig.ProjectConfig;
 import com.ensono.stacks.utils.ApplicationPropertiesFileBuilder;
+import com.ensono.stacks.utils.pom.PomTemplateBuilder;
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.Mustache;
 import com.github.mustachejava.MustacheFactory;
@@ -24,15 +25,15 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static com.ensono.stacks.projectconfig.ProjectConfigUtils.buildPropertiesListFromConfig;
 import static com.ensono.stacks.projectconfig.ProjectConfigUtils.filterPackageList;
-import static com.ensono.stacks.utils.FileUtils.*;
+import static com.ensono.stacks.utils.FileUtils.copyFile;
+import static com.ensono.stacks.utils.FileUtils.deleteDirectoryStructure;
+import static com.ensono.stacks.utils.FileUtils.makePath;
+import static com.ensono.stacks.utils.FileUtils.moveFile;
 
 
 @Mojo(name = "stacks-prepare-project", defaultPhase = LifecyclePhase.COMPILE)
@@ -58,13 +59,13 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
 
         if (buildPom) {
             try {
-                writePom(getDependencies(project));
+                writePom();
             } catch (IOException e) {
-                getLog().error("Unable to write POM file", e);
+                getLog().error("Error writing the Pom file", e);
                 throw new RuntimeException(e);
             }
         } else {
-            getLog().info("Configured to not generate Pom file = ");
+            getLog().info("Configured to not generate Pom file");
         }
     }
 
@@ -166,12 +167,20 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         }
     }
 
-    private void writePom(List<Dependency> dependencies) throws IOException {
+    private void writePom() throws IOException {
         File pomFile = new File(projectLocation + "/pom.xml");
         getLog().info("Generating Pom file = " + pomFile);
 
-        // Prepare data model for Mustache
-        Map<String, Object> dataModel = createMustacheDataModel(dependencies, projectConfig);
+        // Get the dependencies associated to the project
+        List<Dependency> parentDependencies = getDependencies(project.getParent());
+        List<Dependency> dependencies = getDependencies(project);
+        List<Dependency> managedDependencies = project.getDependencyManagement().getDependencies();
+
+        // Prepare data model for template using PomTemplateBuilder
+        PomTemplateBuilder builder = new PomTemplateBuilder();
+        Map<String, Object> dataModel = builder
+                .withDependencies(managedDependencies, parentDependencies, dependencies, projectConfig)
+                .build();
 
         MustacheFactory mf = new DefaultMustacheFactory();
         Path templatePath = makePath(Paths.get("").toAbsolutePath(), pomTemplateFile);
@@ -183,7 +192,7 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
 
         StringWriter writer = new StringWriter();
 
-        // add filtered dependencies to pom
+        // Render the filtered dependencies into the actual POM file
         mustache.execute(writer, dataModel).flush();
 
         try(FileWriter fileWriter = new FileWriter(pomFile)) {
@@ -192,37 +201,6 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         } catch (IOException e) {
             getLog().error("Unable to write POM file", e);
         }
-
-    }
-
-    private Map<String, Object> createMustacheDataModel(List<Dependency> dependencies, ProjectConfig projectConfig) {
-
-        // Filter dependencies we know we don't need
-        List<Dependency> filteredDependencies = dependencies.stream()
-                .filter(dep -> !
-                        projectConfig.getExcludedGroupIds().contains(dep.getGroupId()))
-                .collect(Collectors.toList());
-
-        // Extract GroupId and version into a list of strings
-        List<String> versionProperties = filteredDependencies.stream()
-                .map(dep -> {
-                    String propertyName = dep.getGroupId() + ".version";
-                    return String.format("<%s>%s</%s>", propertyName, dep.getVersion(), propertyName);
-                })
-                .distinct()
-                .collect(Collectors.toList());
-
-        // Update the dependencies to use the new property
-        filteredDependencies.forEach(dep -> {
-            String propertyName = dep.getGroupId() + ".version";
-            dep.setVersion("${" + propertyName + "}");
-        });
-
-        Map<String, Object> dataModel = new HashMap<>();
-        dataModel.put("dependencies", filteredDependencies);
-        dataModel.put("versionProperties", versionProperties);
-
-        return dataModel;
     }
 
     @SuppressWarnings("unchecked")
