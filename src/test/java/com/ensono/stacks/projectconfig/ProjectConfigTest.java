@@ -40,6 +40,24 @@ public class ProjectConfigTest {
 
     }
 
+    @Test
+    public void canParseProjectConfigJsonFileWithNoPackageAttribute() throws IOException, URISyntaxException {
+
+        File configFile = Paths.get(getClass().getResource("/project-builder-config_no_package.json").toURI()).toFile();
+        ProjectConfig projectConfig = objectMapper.readValue(configFile, ProjectConfig.class);
+        assertProjectConfig(projectConfig);
+
+    }
+
+    @Test
+    public void canParseProjectConfigJsonFileWithNoProperties() throws IOException, URISyntaxException {
+
+        File configFile = Paths.get(getClass().getResource("/project-builder-config_no_properties.json").toURI()).toFile();
+        ProjectConfig projectConfig = objectMapper.readValue(configFile, ProjectConfig.class);
+        assertProjectConfig(projectConfig);
+
+    }
+
     public void assertProjectConfig(ProjectConfig projectConfig) {
         Assert.assertNotNull(projectConfig);
         Assert.assertEquals("application.yml", projectConfig.getOutputPropertiesFile());
