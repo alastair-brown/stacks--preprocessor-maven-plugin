@@ -34,7 +34,7 @@ public class PomTemplateBuilder {
                 .map(dep -> new TemplateDependencyModel(
                         dep.getGroupId(),
                         dep.getArtifactId(),
-                        isManagedDependency(dep) ? null : dep.getArtifactId() + ".version",
+                        isManagedDependency(dep) ? null : "${" + dep.getArtifactId() + ".version}",
                         dep.getExclusions() == null ? List.of() : dep.getExclusions().stream()
                                 .map(exclusion -> new TemplateExclusionModel(
                                         exclusion.getGroupId(),
