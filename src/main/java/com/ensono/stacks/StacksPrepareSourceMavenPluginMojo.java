@@ -11,11 +11,18 @@ import org.apache.maven.model.Profile;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.project.MavenProject;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.StringWriter;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
@@ -25,8 +32,11 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.ensono.stacks.projectconfig.ProjectConfigUtils.buildPropertiesListFromConfig;
 import static com.ensono.stacks.projectconfig.ProjectConfigUtils.filterPackageList;
@@ -168,32 +178,70 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
     }
 
     private void writePom() throws IOException {
+
         File pomFile = new File(projectLocation + "/pom.xml");
         getLog().info("Generating Pom file = " + pomFile);
 
-        // Get the dependencies associated to the project
-        List<Dependency> parentDependencies = getDependencies(project.getParent());
-        List<Dependency> dependencies = getDependencies(project);
-        List<Dependency> managedDependencies = project.getDependencyManagement().getDependencies();
-
-        // Prepare data model for template using PomTemplateBuilder
-        PomTemplateBuilder builder = new PomTemplateBuilder();
-        Map<String, Object> dataModel = builder
-                .withDependencies(managedDependencies, parentDependencies, dependencies, projectConfig)
-                .build();
-
-        MustacheFactory mf = new DefaultMustacheFactory();
-        Path templatePath = makePath(Paths.get("").toAbsolutePath(), pomTemplateFile);
-        Mustache mustache;
-
-        try(InputStreamReader reader = new InputStreamReader(Files.newInputStream(templatePath))) {
-            mustache = mf.compile(reader, "template");
+        // gets the actual pom file from the stacks-java-preprocessor project
+        String currentPom;
+        Map<String, String> versionProperties = new HashMap<>();
+        try {
+            Path pomPath = makePath(Paths.get("").toAbsolutePath(), "pom.xml");
+            currentPom = new String(Files.readAllBytes(pomPath));
+            getLog().info("THE ORIGINAL POM FILE" + currentPom);
+            versionProperties = extractVersionProperties(currentPom);
+            getLog().info("versionProperties = " + versionProperties);
+        } catch (Exception e) {
+            getLog().error("Error writing the Pom file", e);
+            throw new RuntimeException(e);
         }
 
-        StringWriter writer = new StringWriter();
+        MustacheFactory mf = new DefaultMustacheFactory() {
+            // extract this method, this is used when the  mf.compile("/pom"); is triggered
+            @Override
+            public Reader getReader(String resourceName) {
+                try {
+                    // will need to filter the resource name depending on what is selected i.e. (AWS, AZURE, COSOMOS, etc)
+                    // resourceName comes from the pom.mustache template itself i.e. ({{> core/coreManagedDependencies}})
+                    Path path = Paths.get(makePath(Paths.get("").toAbsolutePath(), pomTemplateFile) + resourceName + ".mustache");
+                    return new InputStreamReader(Files.newInputStream(path));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
 
-        // Render the filtered dependencies into the actual POM file
-        mustache.execute(writer, dataModel).flush();
+        Mustache mainTemplate = mf.compile("/pom");
+
+        // Render the template to a string
+        StringWriter writer = new StringWriter();
+        mainTemplate.execute(writer, new HashMap<>()).flush();
+        String renderedTemplate = writer.toString();
+
+        getLog().info("renderedTemplate = " + renderedTemplate);
+
+        // Check if any keys from the map are present in the rendered template and construct the property strings
+        List<String> propertiesList = new ArrayList<>();
+        for (Map.Entry<String, String> entry : versionProperties.entrySet()) {
+            String key = entry.getKey();
+            getLog().info("versionPropertiesKey = " + key);
+            String value = entry.getValue();
+            getLog().info("versionPropertiesKey = " + value);
+            if (renderedTemplate.contains(key)) {
+                String propertyString = String.format("<%s>%s</%s>", key, value, key);
+                propertiesList.add(propertyString);
+            }
+        }
+
+        getLog().info("propertiesList = " + propertiesList);
+
+        // Prepare data model
+        Map<String, Object> dataModel = new HashMap<>();
+        dataModel.put("versionProperties", propertiesList);
+
+        // Render the template with the property versions
+        writer = new StringWriter();
+        mainTemplate.execute(writer, dataModel).flush();
 
         try(FileWriter fileWriter = new FileWriter(pomFile)) {
             fileWriter.write(writer.toString());
@@ -202,6 +250,67 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             getLog().error("Unable to write POM file", e);
         }
     }
+
+    private static Map<String, String> extractVersionProperties(String pomContent) throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document document = builder.parse(new ByteArrayInputStream(pomContent.getBytes()));
+
+        NodeList propertiesNodes = document.getElementsByTagName("properties");
+        // if there are no properties then return an empty map
+        if (propertiesNodes.getLength() == 0) {
+            return Map.of();
+        }
+
+        Element propertiesElement = (Element) propertiesNodes.item(0);
+        NodeList propertyNodes = propertiesElement.getChildNodes();
+
+        Map<String, String> versionProperties = new HashMap<>();
+        IntStream.range(0, propertyNodes.getLength())
+                .mapToObj(propertyNodes::item)
+                .filter(node -> node instanceof Element)
+                .map(node -> (Element) node)
+                .filter(element -> element.getTagName().endsWith(".version"))
+                .forEach(element -> versionProperties.put(element.getTagName(), element.getTextContent()));
+
+        return versionProperties;
+    }
+
+//    private void writePom() throws IOException {
+//        File pomFile = new File(projectLocation + "/pom.xml");
+//        getLog().info("Generating Pom file = " + pomFile);
+//
+//        // Get the dependencies associated to the project
+//        List<Dependency> parentDependencies = getDependencies(project.getParent());
+//        List<Dependency> dependencies = getDependencies(project);
+//        List<Dependency> managedDependencies = project.getDependencyManagement().getDependencies();
+//
+//        // Prepare data model for template using PomTemplateBuilder
+//        PomTemplateBuilder builder = new PomTemplateBuilder();
+//        Map<String, Object> dataModel = builder
+//                .withDependencies(managedDependencies, parentDependencies, dependencies, projectConfig)
+//                .build();
+//
+//        MustacheFactory mf = new DefaultMustacheFactory();
+//        Path templatePath = makePath(Paths.get("").toAbsolutePath(), pomTemplateFile);
+//        Mustache mustache;
+//
+//        try(InputStreamReader reader = new InputStreamReader(Files.newInputStream(templatePath))) {
+//            mustache = mf.compile(reader, "template");
+//        }
+//
+//        StringWriter writer = new StringWriter();
+//
+//        // Render the filtered dependencies into the actual POM file
+//        mustache.execute(writer, dataModel).flush();
+//
+//        try(FileWriter fileWriter = new FileWriter(pomFile)) {
+//            fileWriter.write(writer.toString());
+//            getLog().info("Pom file generated = " + pomFile);
+//        } catch (IOException e) {
+//            getLog().error("Unable to write POM file", e);
+//        }
+//    }
 
     @SuppressWarnings("unchecked")
     public List<Dependency> getDependencies(MavenProject project) {
