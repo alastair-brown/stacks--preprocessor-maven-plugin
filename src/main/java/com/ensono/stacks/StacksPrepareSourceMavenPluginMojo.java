@@ -2,7 +2,7 @@ package com.ensono.stacks;
 
 import com.ensono.stacks.projectconfig.ProjectConfig;
 import com.ensono.stacks.utils.ApplicationPropertiesFileBuilder;
-import com.ensono.stacks.utils.pom.PomTemplateBuilder;
+import com.ensono.stacks.utils.XmlUtils;
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.Mustache;
 import com.github.mustachejava.MustacheFactory;
@@ -13,37 +13,23 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.project.MavenProject;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StringWriter;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
+import java.io.*;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.ensono.stacks.projectconfig.ProjectConfigUtils.buildPropertiesListFromConfig;
 import static com.ensono.stacks.projectconfig.ProjectConfigUtils.filterPackageList;
-import static com.ensono.stacks.utils.FileUtils.copyFile;
-import static com.ensono.stacks.utils.FileUtils.deleteDirectoryStructure;
-import static com.ensono.stacks.utils.FileUtils.makePath;
-import static com.ensono.stacks.utils.FileUtils.moveFile;
+import static com.ensono.stacks.utils.FileUtils.*;
 
 
 @Mojo(name = "stacks-prepare-project", defaultPhase = LifecyclePhase.COMPILE)
@@ -180,16 +166,18 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
     private void writePom() throws IOException {
 
         File pomFile = new File(projectLocation + "/pom.xml");
-        getLog().info("Generating Pom file = " + pomFile);
+        //getLog().info("Generating Pom file = " + pomFile);
 
         // gets the actual pom file from the stacks-java-preprocessor project
         String currentPom;
         Map<String, String> versionProperties = new HashMap<>();
         try {
             Path pomPath = makePath(Paths.get("").toAbsolutePath(), "pom.xml");
+
             currentPom = new String(Files.readAllBytes(pomPath));
-            getLog().info("THE ORIGINAL POM FILE" + currentPom);
-            versionProperties = extractVersionProperties(currentPom);
+            //getLog().info("THE ORIGINAL POM FILE" + currentPom);
+            versionProperties = extractVersionProperties(currentPom, activeProfileIds);
+
             getLog().info("versionProperties = " + versionProperties);
         } catch (Exception e) {
             getLog().error("Error writing the Pom file", e);
@@ -201,6 +189,7 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             @Override
             public Reader getReader(String resourceName) {
                 try {
+                    getLog().info("RESOURCE =  " + resourceName);
                     // will need to filter the resource name depending on what is selected i.e. (AWS, AZURE, COSOMOS, etc)
                     // resourceName comes from the pom.mustache template itself i.e. ({{> core/coreManagedDependencies}})
                     Path path = Paths.get(makePath(Paths.get("").toAbsolutePath(), pomTemplateFile) + resourceName + ".mustache");
@@ -212,10 +201,13 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         };
 
         Mustache mainTemplate = mf.compile("/pom");
+        // Add the active profiles to the data model so that the profile specific templates are included.
+        Map<String, Object> dataModel = new HashMap<>();
+        addProfilesToDataModel(dataModel, activeProfileIds);
 
         // Render the template to a string
         StringWriter writer = new StringWriter();
-        mainTemplate.execute(writer, new HashMap<>()).flush();
+        mainTemplate.execute(writer, dataModel).flush();
         String renderedTemplate = writer.toString();
 
         getLog().info("renderedTemplate = " + renderedTemplate);
@@ -236,7 +228,6 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         getLog().info("propertiesList = " + propertiesList);
 
         // Prepare data model
-        Map<String, Object> dataModel = new HashMap<>();
         dataModel.put("versionProperties", propertiesList);
 
         // Render the template with the property versions
@@ -251,7 +242,7 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         }
     }
 
-    private static Map<String, String> extractVersionProperties(String pomContent) throws Exception {
+    private static Map<String, String> extractVersionProperties(String pomContent, List<String> activeProfileIds) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document document = builder.parse(new ByteArrayInputStream(pomContent.getBytes()));
@@ -265,6 +256,36 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         Element propertiesElement = (Element) propertiesNodes.item(0);
         NodeList propertyNodes = propertiesElement.getChildNodes();
 
+        Map<String, String> versionProperties = buildPropertiesMap(propertyNodes);
+
+        // extract the versions properties from each off the active profiles and add them to the list of
+        // properties to include.
+        activeProfileIds.stream().forEach(id -> {
+            System.out.println("Checking properties for = " + id);
+            versionProperties.putAll(extractVersionPropertiesFromProfile(document, id));
+        });
+
+        return versionProperties;
+    }
+
+    private static Map<String, String> extractVersionPropertiesFromProfile(Document document, String profileName) {
+        NodeList profiles = document.getElementsByTagName("profile");
+        for (Node profile : XmlUtils.iterable(profiles)) {
+
+            Element profileElement = (Element) profile;
+
+            Node id = profileElement.getElementsByTagName("id").item(0);
+            if (id.getTextContent().equals(profileName)) {
+                Node profileProps = profileElement.getElementsByTagName("properties").item(0);
+                if (profileProps != null) {
+                    return buildPropertiesMap(profileProps.getChildNodes());
+                }
+            }
+        }
+        return Map.of();
+    }
+
+    private static Map<String, String> buildPropertiesMap(NodeList propertyNodes) {
         Map<String, String> versionProperties = new HashMap<>();
         IntStream.range(0, propertyNodes.getLength())
                 .mapToObj(propertyNodes::item)
@@ -321,4 +342,11 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
     public List<Profile> getActiveProfiles(MavenProject project) {
         return (List<Profile>) project.getActiveProfiles();
     }
+
+    private static void addProfilesToDataModel(Map<String, Object> dataModel, List<String> activeProfileIds) {
+        activeProfileIds.stream().forEach(id -> {
+            dataModel.put(id, true);
+        });
+    }
+
 }
