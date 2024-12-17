@@ -34,7 +34,7 @@ public class PomTemplateBuilder {
                 .map(dep -> new TemplateDependencyModel(
                         dep.getGroupId(),
                         dep.getArtifactId(),
-                        isManagedDependency(dep) ? null : "${" + dep.getArtifactId() + ".version}",
+                        isManagedDependency(dep) ? null : "${" + getVersionProperty(dep,versionProperties) + "}",
                         dep.getExclusions() == null ? List.of() : dep.getExclusions().stream()
                                 .map(exclusion -> new TemplateExclusionModel(
                                         exclusion.getGroupId(),
@@ -50,11 +50,20 @@ public class PomTemplateBuilder {
         return dataModel;
     }
 
+    private String getVersionProperty(Dependency dep, List<String> versionProperties) {
+        String target = dep.getGroupId() + dep.getArtifactId() + ".version";
+        return versionProperties.stream()
+                .filter(prop -> prop.equals(target))
+                .findFirst()
+                .orElse(null);
+    }
+
     private List<Dependency> buildDependencyList() {
         return dependencies.stream()
                 .filter(dep -> parentDependencies.stream()
                         .noneMatch(parentDep -> parentDep.getGroupId().equals(dep.getGroupId()) &&
-                                parentDep.getArtifactId().equals(dep.getArtifactId())) &&
+                                parentDep.getArtifactId().equals(dep.getArtifactId()) &&
+                                parentDep.getVersion().equals(dep.getVersion())) &&
                         !projectConfig.getExcludedGroupIds().contains(dep.getGroupId()))
                 .toList();
     }
@@ -63,10 +72,9 @@ public class PomTemplateBuilder {
         return filteredDependencies.stream()
                 .filter(dep -> managedDependencies.stream()
                         .noneMatch(parentDep -> parentDep.getGroupId().equals(dep.getGroupId()) &&
-                                parentDep.getArtifactId().equals(dep.getArtifactId())))
-                .map(dep -> String.format(
-                        "<%s>%s</%s>", dep.getArtifactId() +
-                                ".version", dep.getVersion(), dep.getArtifactId() + ".version"))
+                                parentDep.getArtifactId().equals(dep.getArtifactId()) &&
+                                parentDep.getVersion().equals(dep.getVersion())))
+                .map(this::buildPropertyString)
                 .distinct()
                 .collect(Collectors.toList());
     }
@@ -76,5 +84,9 @@ public class PomTemplateBuilder {
                 .anyMatch(parentDep -> parentDep.getGroupId().equals(dep.getGroupId()) &&
                         parentDep.getArtifactId().equals(dep.getArtifactId()) &&
                         parentDep.getVersion().equals(dep.getVersion()));
+    }
+
+    private String buildPropertyString(Dependency dep) {
+        return String.format("<%s>%s</%s>", dep.getArtifactId() + ".version", dep.getVersion(), dep.getArtifactId() + ".version");
     }
 }
