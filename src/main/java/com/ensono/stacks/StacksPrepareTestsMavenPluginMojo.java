@@ -1,5 +1,6 @@
 package com.ensono.stacks;
 
+import com.ensono.stacks.projectconfig.ProjectConfig;
 import com.ensono.stacks.utils.FileUtils;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -9,15 +10,25 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
 
 @Mojo(name = "stacks-prepare-project-tests", defaultPhase = LifecyclePhase.TEST_COMPILE)
 public class StacksPrepareTestsMavenPluginMojo extends AbstractStacksPrepareMavenPluginMojo {
+
+    private List<PathMatcher> testMatchers = new ArrayList<>();
 
     @Override
     public void execute() {
 
         getLog().info("ProjectLocation - " + projectLocation);
 
+        // Parse the project config json file
+        buildProjectConfig();
+
+        // Build the list of Path matchers based on the test includes sections from the Project Config
+        buildTestMatcherList();
+
+        // Move any files that match with the matchers we've configured
         moveFiles();
     }
 
@@ -48,7 +59,9 @@ public class StacksPrepareTestsMavenPluginMojo extends AbstractStacksPrepareMave
             try {
 
                 if (path.toFile().exists()) {
-                    if (path.toString().endsWith(TEST_FILE)) {
+                    getLog().info("test file to check = " + path);
+                    //shouldMoveFile(path);
+                    if (shouldMoveFile(path, testMatchers)) {
                         getLog().info("Test file to move = " + path);
                         FileUtils.moveFile(path, buildTestPath(path));
                     }
@@ -60,4 +73,24 @@ public class StacksPrepareTestsMavenPluginMojo extends AbstractStacksPrepareMave
         }
         FileUtils.deleteDirectoryStructure(Path.of(projectLocation + PRE_PROCESSOR_OUTPUT_DIR));
     }
+
+    private void buildTestMatcherList() {
+        projectConfig.getCoreTestIncludes().stream().forEach(testInclude -> {
+            testMatchers.add(FileSystems.getDefault().getPathMatcher("glob:" + testInclude));
+        });
+    }
+
+    private boolean shouldMoveFile(Path path, List<PathMatcher> matcherList) {
+
+        for (PathMatcher pm :matcherList) {
+            if (pm.matches(path)) {
+                getLog().info("MATCH " + path);
+                return true;
+            }
+        }
+        return false;
+
+    }
+
+
 }

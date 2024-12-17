@@ -1,6 +1,7 @@
 package com.ensono.stacks;
 
 import com.ensono.stacks.projectconfig.ProjectConfig;
+import com.ensono.stacks.projectconfig.ProjectConfigUtils;
 import com.ensono.stacks.utils.ApplicationPropertiesFileBuilder;
 import com.ensono.stacks.utils.XmlUtils;
 import com.github.mustachejava.DefaultMustacheFactory;
@@ -36,7 +37,8 @@ import static com.ensono.stacks.utils.FileUtils.*;
 public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMavenPluginMojo {
 
     private List<String> activeProfileIds = new ArrayList<>();
-    ProjectConfig projectConfig;
+
+    private List<PathMatcher> pathMatchers = new ArrayList<>();
 
     @Override
     public void execute() {
@@ -45,14 +47,22 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
 
         getLog().info("Working directory - " + Paths.get("").toAbsolutePath());
 
+        // Parse the project config json file
         buildProjectConfig();
 
+        // find list of active profiles set for this Maven project
         buildActiveProfiles();
 
+        // Build the list of Path matchers based on the includes sections from the Project Config
+        buildMatcherList();
+
+        // Move any files that match with the matchers we've configured
         moveFiles();
 
+        // generate the contents of the resources folder
         generateResources();
 
+        // if we are building a POM do that.
         if (buildPom) {
             try {
                 writePom();
@@ -72,20 +82,6 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
                 .toList();
 
         getLog().info("Profiles -" + project.getActiveProfiles());
-    }
-
-    private void buildProjectConfig() {
-        try {
-            if (projectConfigFile == null) {
-                getLog().error("projectConfigFile property must be set");
-            }
-            Path projectConfigFile = makePath(Paths.get("").toAbsolutePath(), this.projectConfigFile);
-            getLog().info("Reading project config from " +projectConfigFile);
-
-            projectConfig = objectMapper.readValue(projectConfigFile.toFile(), ProjectConfig.class);
-        } catch (IOException e) {
-            getLog().error("Error reading projectConfigFile property");
-        }
     }
 
     private void moveFiles() {
@@ -111,7 +107,8 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             getLog().error("Error walking tree", ioe);
         }
 
-        List<Path> filteredFiles = filterPackageList(allFiles, activeProfileIds, projectConfig);
+        List<Path> filteredFiles = filterPackageList(allFiles, pathMatchers);
+
         for (Path path : filteredFiles) {
             try {
 
@@ -125,6 +122,10 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             }
         }
         deleteDirectoryStructure(Path.of(projectLocation + PRE_PROCESSOR_OUTPUT_DIR));
+    }
+
+    private void buildMatcherList() {
+        pathMatchers.addAll(ProjectConfigUtils.buildMatcherList(activeProfileIds, projectConfig));
     }
 
     private void generateResources() {
@@ -166,7 +167,6 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
     private void writePom() throws IOException {
 
         File pomFile = new File(projectLocation + "/pom.xml");
-        //getLog().info("Generating Pom file = " + pomFile);
 
         // gets the actual pom file from the stacks-java-preprocessor project
         String currentPom;
@@ -175,7 +175,6 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
             Path pomPath = makePath(Paths.get("").toAbsolutePath(), "pom.xml");
 
             currentPom = new String(Files.readAllBytes(pomPath));
-            //getLog().info("THE ORIGINAL POM FILE" + currentPom);
             versionProperties = extractVersionProperties(currentPom, activeProfileIds);
 
             getLog().info("versionProperties = " + versionProperties);
@@ -209,8 +208,6 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
         StringWriter writer = new StringWriter();
         mainTemplate.execute(writer, dataModel).flush();
         String renderedTemplate = writer.toString();
-
-        getLog().info("renderedTemplate = " + renderedTemplate);
 
         // Check if any keys from the map are present in the rendered template and construct the property strings
         List<String> propertiesList = new ArrayList<>();

@@ -3,7 +3,9 @@ package com.ensono.stacks.projectconfig;
 import com.ensono.stacks.utils.FileUtils;
 
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.nio.file.PathMatcher;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,21 +13,29 @@ import static com.ensono.stacks.utils.FileUtils.makePath;
 
 public class ProjectConfigUtils {
 
-    public static List<Path> filterPackageList(List<Path> allFiles, List<String> profiles, ProjectConfig projectConfig) {
-        List<String> packagesToInclude = buildPackageListFromConfig(profiles, projectConfig);
+    public static List<Path> filterPackageList(List<Path> allFiles, List<PathMatcher> coreMatchers) {
 
         return allFiles
                 .stream()
                 .filter(p ->
-                        includePackage(p, packagesToInclude)
+                        includePackage(p, coreMatchers)
                 ).toList();
+    }
+
+    public static List<PathMatcher> buildMatcherList(List<String> profiles, ProjectConfig projectConfig) {
+        List<PathMatcher> matcherList = new ArrayList<>();
+        List<String> fullPackageList = buildPackageListFromConfig(profiles, projectConfig);
+        fullPackageList.forEach(p -> {
+            matcherList.add(FileSystems.getDefault().getPathMatcher("glob:" + p));
+        });
+        return matcherList;
     }
 
     public static List<String> buildPackageListFromConfig(List<String> profiles, ProjectConfig projectConfig) {
         List<String> fullPackageList = new ArrayList<>(projectConfig.getCoreIncludes());
         projectConfig.getProfileFilters().forEach(p -> {
                     if (profiles.contains(p.getId())) {
-                        fullPackageList.addAll(p.getPackages());
+                        fullPackageList.addAll(p.getIncludes());
                     }
                 }
         );
@@ -51,13 +61,13 @@ public class ProjectConfigUtils {
         return fullPropertiesList;
     }
 
-    private static boolean includePackage(Path path, List<String> packagesToInclude) {
-        for (String packageToInclude : packagesToInclude) {
-
-            if (FileUtils.containsSubPath(path, packageToInclude)) {
+    private static boolean includePackage(Path path, List<PathMatcher> matcherList) {
+        for (PathMatcher pm :matcherList) {
+            if (pm.matches(path)) {
                 return true;
             }
         }
         return false;
+
     }
 }

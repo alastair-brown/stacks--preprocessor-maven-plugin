@@ -6,50 +6,53 @@
     "com/ensono/stacks/stacks_preprocessor/repository",
     "com/ensono/stacks/stacks_preprocessor/StacksPreprocessorApplication.java"
   ],
+  "coreTestIncludes" : [
+    "**/com/amido/stacks/workloads/menu/**/*Test.java",
+    "**/com/amido/stacks/workloads/util/TestHelper.java",
+    "**/com/amido/stacks/workloads/menu/domain/*Helper.java"
+  ],
   "profileFilters": [
      {
        "id": "aws",
-        "packages" : [
-          "com/ensono/stacks/stacks_preprocessor/aws"
-        ],
+        "includes" : "com/ensono/stacks/stacks_preprocessor/aws",
         "propertiesFile": "application-aws.yml"
     },
     {
       "id": "azure",
-      "packages" : [
+      "includes" : [
         "com/ensono/stacks/stacks_preprocessor/azure"
       ],
       "propertiesFile": "application-azure.yml"
     },
     {
       "id": "cosmos",
-      "packages" : [
+      "includes" : [
         "com/ensono/stacks/stacks_preprocessor/cosmos"
       ],
       "propertiesFile": "application-cosmos.yml"
     },
     {
       "id": "dynamodb",
-      "packages" : [
+      "includes" : [
         "com/ensono/stacks/stacks_preprocessor/dynamodb"
       ],
       "propertiesFile": "application-dynamodb.yml"
     },
     {
       "id": "kafka",
-      "packages" : [
+      "includes" : [
         "com/ensono/stacks/stacks_preprocessor/kafka"
       ]
     },
     {
       "id": "servicebus",
-      "packages" : [
+      "includes" : [
         "com/ensono/stacks/stacks_preprocessor/servicebus"
       ]
     },
     {
       "id": "sqs",
-      "packages" : [
+      "includes" : [
         "com/ensono/stacks/stacks_preprocessor/sqs"
       ]
     }
