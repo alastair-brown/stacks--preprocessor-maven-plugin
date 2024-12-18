@@ -13,39 +13,39 @@
     },
     {
       "id": "azure",
-      "packages" : [
+      "includes" : [
         "com/ensono/stacks/stacks_preprocessor/azure"
       ]
     },
     {
       "id": "cosmos",
-      "packages" : [
+      "includes" : [
         "com/ensono/stacks/stacks_preprocessor/cosmos"
       ],
       "propertiesFile": "application-cosmos.yml"
     },
     {
       "id": "dynamodb",
-      "packages" : [
+      "includes" : [
         "com/ensono/stacks/stacks_preprocessor/dynamodb"
       ],
       "propertiesFile": "application-dynamodb.yml"
     },
     {
       "id": "kafka",
-      "packages" : [
+      "includes" : [
         "com/ensono/stacks/stacks_preprocessor/kafka"
       ]
     },
     {
       "id": "servicebus",
-      "packages" : [
+      "includes" : [
         "com/ensono/stacks/stacks_preprocessor/servicebus"
       ]
     },
     {
       "id": "sqs",
-      "packages" : [
+      "includes" : [
         "com/ensono/stacks/stacks_preprocessor/sqs"
       ]
     }
