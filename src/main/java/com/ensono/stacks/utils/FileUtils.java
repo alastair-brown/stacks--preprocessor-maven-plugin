@@ -1,6 +1,5 @@
 package com.ensono.stacks.utils;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -9,7 +8,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 
 public class FileUtils {
-
 
     public static void deleteDirectoryStructure(Path dir) {
         if (Files.exists(dir) && Files.isDirectory(dir)) {

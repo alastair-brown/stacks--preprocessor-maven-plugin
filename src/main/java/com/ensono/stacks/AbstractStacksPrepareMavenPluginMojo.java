@@ -9,9 +9,7 @@ import org.apache.maven.project.MavenProject;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
-import java.util.List;
 
 import static com.ensono.stacks.utils.FileUtils.makePath;
 

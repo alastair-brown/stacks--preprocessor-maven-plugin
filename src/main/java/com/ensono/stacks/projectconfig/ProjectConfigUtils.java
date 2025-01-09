@@ -1,7 +1,5 @@
 package com.ensono.stacks.projectconfig;
 
-import com.ensono.stacks.utils.FileUtils;
-
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;

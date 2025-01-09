@@ -1,6 +1,5 @@
 package com.ensono.stacks.utils;
 
-import com.ensono.stacks.utils.XmlUtils;
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.Mustache;
 import com.github.mustachejava.MustacheFactory;

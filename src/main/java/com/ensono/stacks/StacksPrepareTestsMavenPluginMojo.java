@@ -1,21 +1,26 @@
 package com.ensono.stacks;
 
-import com.ensono.stacks.projectconfig.ProjectConfig;
 import com.ensono.stacks.utils.FileUtils;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.PathMatcher;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
 
 @Mojo(name = "stacks-prepare-project-tests", defaultPhase = LifecyclePhase.TEST_COMPILE)
 public class StacksPrepareTestsMavenPluginMojo extends AbstractStacksPrepareMavenPluginMojo {
 
-    private List<PathMatcher> testMatchers = new ArrayList<>();
+    private final List<PathMatcher> testMatchers = new ArrayList<>();
 
     @Override
     public void execute() {
@@ -75,7 +80,7 @@ public class StacksPrepareTestsMavenPluginMojo extends AbstractStacksPrepareMave
     }
 
     private void buildTestMatcherList() {
-        projectConfig.getCoreTestIncludes().stream().forEach(testInclude -> {
+        projectConfig.getCoreTestIncludes().forEach(testInclude -> {
             testMatchers.add(FileSystems.getDefault().getPathMatcher("glob:" + testInclude));
         });
     }
