@@ -34,7 +34,7 @@ public class StacksPrepareSourceMavenPluginMojo extends AbstractStacksPrepareMav
 
     private List<String> activeProfileIds = new ArrayList<>();
 
-    private List<PathMatcher> pathMatchers = new ArrayList<>();
+    private final List<PathMatcher> pathMatchers = new ArrayList<>();
 
     @Override
     public void execute() {
